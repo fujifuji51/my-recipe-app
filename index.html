@@ -6,7 +6,6 @@
   <title>マイレシピ</title>
   <link rel="manifest" href="manifest.json">
   <style>
-    /* 先ほどの固定ヘッダーのデザインをここに貼る */
     body { font-family: sans-serif; margin: 0; padding: 0 15px; background: #f0f2f5; }
     .controls { position: sticky; top: 0; z-index: 100; background: #f0f2f5; padding: 10px 0; }
     input, select { width: 100%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ccc; }
@@ -18,45 +17,57 @@
     <h1>マイレシピ検索</h1>
     <select id="category-filter" onchange="filterRecipes()">
       <option value="すべて">すべて表示</option>
-      <!-- 他のoptionをここに追加 -->
     </select>
     <input type="text" id="search-box" oninput="filterRecipes()" placeholder="キーワード検索...">
   </div>
-
   <ul id="recipe-list">読み込み中...</ul>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbzL2crlM6y8d5mdfq3ixwyy86D5K1urcuXshWBhi7qfJi1ytmzlQWUvAeFiXddzKcAI/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbydM1o00k1uV6geLVA4hJx_QPSaS1MS2PD_ko38IL8enNr74AivF_J4lEBhVVDuMjmW/exec";
     let allRecipes = [];
 
-    // 起動時にデータを取得
-    window.onload = async () => {
-  try {
-    // fetchの第2引数に {redirect: 'follow'} を入れるのがコツです
-    const response = await fetch(GAS_URL, { redirect: 'follow' });
-    
-    if (!response.ok) throw new Error('Network response was not ok');
-    
-    allRecipes = await response.json();
-    showRecipes(allRecipes);
-    
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
+    // JSONPでデータ取得（CORSを回避）
+    function loadRecipes() {
+      const script = document.createElement('script');
+      script.src = `${GAS_URL}?callback=onRecipesLoaded`;
+      script.onerror = () => {
+        document.getElementById('recipe-list').innerHTML = "データ取得エラー: スクリプト読み込み失敗";
+      };
+      document.body.appendChild(script);
     }
-  } catch (e) {
-    console.error(e);
-    document.getElementById('recipe-list').innerHTML = "データ取得エラー: " + e.message;
-  }
-};
+
+    // GASから呼び出されるコールバック関数
+    function onRecipesLoaded(data) {
+      allRecipes = data;
+      showRecipes(allRecipes);
+
+      // カテゴリの選択肢を動的生成
+      const categories = [...new Set(data.map(r => r['カテゴリ']).filter(Boolean))];
+      const select = document.getElementById('category-filter');
+      categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        select.appendChild(opt);
+      });
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+    }
 
     function showRecipes(data) {
       const list = document.getElementById('recipe-list');
+      if (data.length === 0) {
+        list.innerHTML = '<li>該当するレシピがありません</li>';
+        return;
+      }
       list.innerHTML = data.map(r => `
         <li>
-          <small>${r['カテゴリ']}</small><br>
-          <strong>${r['レシピ名']}</strong><br>
+          <small>${r['カテゴリ'] || ''}</small><br>
+          <strong>${r['レシピ名'] || ''}</strong><br>
           <p>${r['メモ'] || ''}</p>
-          <a href="${r['URL']}" target="_blank">レシピを見る</a>
+          <a href="${r['URL'] || '#'}" target="_blank">レシピを見る</a>
         </li>
       `).join('');
     }
@@ -65,12 +76,14 @@
       const cat = document.getElementById('category-filter').value;
       const word = document.getElementById('search-box').value.toLowerCase();
       const filtered = allRecipes.filter(r => {
-        const matchCat = (cat === "すべて" || r['カテゴリ'].includes(cat));
-        const matchWord = `${r['レシピ名']}${r['メモ']}`.toLowerCase().includes(word);
+        const matchCat = (cat === "すべて" || (r['カテゴリ'] || '').includes(cat));
+        const matchWord = `${r['レシピ名'] || ''}${r['メモ'] || ''}`.toLowerCase().includes(word);
         return matchCat && matchWord;
       });
       showRecipes(filtered);
     }
+
+    window.onload = loadRecipes;
   </script>
 </body>
 </html>
