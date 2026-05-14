@@ -12,22 +12,22 @@
     li { background: white; margin-bottom: 10px; padding: 15px; border-radius: 10px; list-style: none; }
     #status { font-size: 12px; color: #888; text-align: right; }
     .memo-toggle {
-  color: #e67e22;
-  cursor: pointer;
-  margin: 6px 0;
-  font-size: 14px;
-  user-select: none;
-}
-.memo-body {
-  background: #fffbf0;
-  border-left: 3px solid #e67e22;
-  padding: 8px 12px;
-  border-radius: 4px;
-  margin-bottom: 8px;
-  font-size: 14px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
+      color: #e67e22;
+      cursor: pointer;
+      margin: 6px 0;
+      font-size: 14px;
+      user-select: none;
+    }
+    .memo-body {
+      background: #fffbf0;
+      border-left: 3px solid #e67e22;
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -47,38 +47,28 @@
     let allRecipes = [];
 
     window.onload = () => {
+      // SW登録は1つだけ
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
+        navigator.serviceWorker.register('/my-recipe-app/sw.js')
+          .then(() => console.log('SW登録成功'))
+          .catch(e => console.error('SW登録失敗:', e));
       }
-      if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/my-recipe-app/sw.js')
-      .then(() => console.log('SW登録成功'))
-      .catch(e => console.error('SW登録失敗:', e));
-  }
 
       if (navigator.onLine) {
-        // オンライン: GASから最新データ取得
         loadFromGAS();
       } else {
-        // オフライン: キャッシュから読み込む
         loadFromCache();
       }
     };
 
-    // JSONPでGASからデータ取得
     function loadFromGAS() {
       const script = document.createElement('script');
       script.src = `${GAS_URL}?callback=onRecipesLoaded&t=${Date.now()}`;
-      script.onerror = () => {
-        // GAS取得失敗時もキャッシュにフォールバック
-        loadFromCache();
-      };
+      script.onerror = () => loadFromCache();
       document.body.appendChild(script);
     }
 
-    // GASコールバック
     function onRecipesLoaded(data) {
-      // localStorageに保存
       try {
         localStorage.setItem(CACHE_KEY, JSON.stringify(data));
         localStorage.setItem(CACHE_KEY + '_date', new Date().toLocaleString('ja-JP'));
@@ -88,7 +78,6 @@
       initRecipes(data, 'オンライン（最新データ）');
     }
 
-    // キャッシュから読み込む
     function loadFromCache() {
       const cached = localStorage.getItem(CACHE_KEY);
       const date = localStorage.getItem(CACHE_KEY + '_date');
@@ -104,10 +93,8 @@
       allRecipes = data;
       document.getElementById('status').textContent = statusText;
 
-      // カテゴリの選択肢を動的生成
       const categories = [...new Set(data.map(r => r['カテゴリ']).filter(Boolean))];
       const select = document.getElementById('category-filter');
-      // 既存のオプション（すべて以外）をリセット
       select.innerHTML = '<option value="すべて">すべて表示</option>';
       categories.forEach(cat => {
         const opt = document.createElement('option');
@@ -119,48 +106,54 @@
       showRecipes(allRecipes);
     }
 
-   function showRecipes(data) {
-  const list = document.getElementById('recipe-list');
-  if (data.length === 0) {
-    list.innerHTML = '<li>該当するレシピがありません</li>';
-    return;
-  }
-  list.innerHTML = data.map((r, i) => `
-    <li>
-      <small>${r['カテゴリ'] || ''}</small><br>
-      <strong>${r['レシピ名'] || ''}</strong><br>
-      <div class="memo-toggle" onclick="toggleMemo(${i})">
-        📝 メモを見る ▼
-      </div>
-      <div class="memo-body" id="memo-${i}" style="display:none;">
-        ${(r['メモ'] || 'メモなし').replace(/\n/g, '<br>')}
-      </div>
-      <a href="${r['URL'] || '#'}" target="_blank"
-        onclick="return checkOnline(event)">レシピを見る →</a>
-    </li>
-  `).join('');
-}
+    function showRecipes(data) {
+      const list = document.getElementById('recipe-list');
+      if (data.length === 0) {
+        list.innerHTML = '<li>該当するレシピがありません</li>';
+        return;
+      }
+      list.innerHTML = data.map((r, i) => {
+        // メモのIDをdata-index属性で管理
+        const memoId = `memo-${i}`;
+        const memo = r['メモ'] || '';
+        return `
+          <li>
+            <small>${r['カテゴリ'] || ''}</small><br>
+            <strong>${r['レシピ名'] || ''}</strong><br>
+            ${memo ? `
+              <div class="memo-toggle" onclick="toggleMemo('${memoId}', this)">
+                📝 メモを見る ▼
+              </div>
+              <div class="memo-body" id="${memoId}" style="display:none;">
+                ${memo.replace(/\n/g, '<br>')}
+              </div>
+            ` : ''}
+            <a href="${r['URL'] || '#'}" target="_blank"
+              onclick="return checkOnline(event)">レシピを見る →</a>
+          </li>
+        `;
+      }).join('');
+    }
 
-function toggleMemo(i) {
-  const body = document.getElementById(`memo-${i}`);
-  const toggle = body.previousElementSibling;
-  if (body.style.display === 'none') {
-    body.style.display = 'block';
-    toggle.textContent = '📝 メモを閉じる ▲';
-  } else {
-    body.style.display = 'none';
-    toggle.textContent = '📝 メモを見る ▼';
-  }
-}
+    function toggleMemo(memoId, toggleEl) {
+      const body = document.getElementById(memoId);
+      if (body.style.display === 'none') {
+        body.style.display = 'block';
+        toggleEl.textContent = '📝 メモを閉じる ▲';
+      } else {
+        body.style.display = 'none';
+        toggleEl.textContent = '📝 メモを見る ▼';
+      }
+    }
 
-function checkOnline(e) {
-  if (!navigator.onLine) {
-    e.preventDefault();
-    alert('オフラインのため外部レシピページは開けません。\nメモ欄をご確認ください。');
-    return false;
-  }
-  return true;
-}
+    function checkOnline(e) {
+      if (!navigator.onLine) {
+        e.preventDefault();
+        alert('オフラインのため外部レシピページは開けません。\nメモ欄をご確認ください。');
+        return false;
+      }
+      return true;
+    }
 
     function filterRecipes() {
       const cat = document.getElementById('category-filter').value;
