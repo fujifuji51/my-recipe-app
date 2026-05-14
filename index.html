@@ -107,34 +107,30 @@
     }
 
     function showRecipes(data) {
-      const list = document.getElementById('recipe-list');
-      if (data.length === 0) {
-        list.innerHTML = '<li>該当するレシピがありません</li>';
-        return;
-      }
-      list.innerHTML = data.map((r, i) => {
-        // メモのIDをdata-index属性で管理
-        const memoId = `memo-${i}`;
-        const memo = r['メモ'] || '';
-        return `
-          <li>
-            <small>${r['カテゴリ'] || ''}</small><br>
-            <strong>${r['レシピ名'] || ''}</strong><br>
-            ${memo ? `
-              <div class="memo-toggle" onclick="toggleMemo('${memoId}', this)">
-                📝 メモを見る ▼
-              </div>
-              <div class="memo-body" id="${memoId}" style="display:none;">
-                ${memo.replace(/\n/g, '<br>')}
-              </div>
-            ` : ''}
-            <a href="${r['URL'] || '#'}" target="_blank"
-              onclick="return checkOnline(event)">レシピを見る →</a>
-          </li>
-        `;
-      }).join('');
-    }
-
+  const list = document.getElementById('recipe-list');
+  if (data.length === 0) {
+    list.innerHTML = '<li>該当するレシピがありません</li>';
+    return;
+  }
+  list.innerHTML = data.map((r, i) => {
+    const memoId = `memo-${i}`;
+    const memo = (r['メモ'] || '').trim();  // ← trimを追加
+    return `
+      <li>
+        <small>${r['カテゴリ'] || ''}</small><br>
+        <strong>${r['レシピ名'] || ''}</strong><br>
+        <div class="memo-toggle" onclick="toggleMemo('${memoId}', this)">
+          📝 メモを見る ▼
+        </div>
+        <div class="memo-body" id="${memoId}" style="display:none;">
+          ${memo.replace(/\n/g, '<br>')}
+        </div>
+        <a href="${r['URL'] || '#'}" target="_blank"
+          onclick="return checkOnline(event)">レシピを見る →</a>
+      </li>
+    `;
+  }).join('');
+}
     function toggleMemo(memoId, toggleEl) {
       const body = document.getElementById(memoId);
       if (body.style.display === 'none') {
