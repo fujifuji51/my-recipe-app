@@ -10,11 +10,13 @@
     .controls { position: sticky; top: 0; z-index: 100; background: #f0f2f5; padding: 10px 0; }
     input, select { width: 100%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ccc; }
     li { background: white; margin-bottom: 10px; padding: 15px; border-radius: 10px; list-style: none; }
+    #status { font-size: 12px; color: #888; text-align: right; }
   </style>
 </head>
 <body>
   <div class="controls">
     <h1>マイレシピ検索</h1>
+    <div id="status"></div>
     <select id="category-filter" onchange="filterRecipes()">
       <option value="すべて">すべて表示</option>
     </select>
@@ -24,26 +26,67 @@
 
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbydM1o00k1uV6geLVA4hJx_QPSaS1MS2PD_ko38IL8enNr74AivF_J4lEBhVVDuMjmW/exec";
+    const CACHE_KEY = 'recipe_cache';
     let allRecipes = [];
 
-    // JSONPでデータ取得（CORSを回避）
-    function loadRecipes() {
+    window.onload = () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+
+      if (navigator.onLine) {
+        // オンライン: GASから最新データ取得
+        loadFromGAS();
+      } else {
+        // オフライン: キャッシュから読み込む
+        loadFromCache();
+      }
+    };
+
+    // JSONPでGASからデータ取得
+    function loadFromGAS() {
       const script = document.createElement('script');
-      script.src = `${GAS_URL}?callback=onRecipesLoaded`;
+      script.src = `${GAS_URL}?callback=onRecipesLoaded&t=${Date.now()}`;
       script.onerror = () => {
-        document.getElementById('recipe-list').innerHTML = "データ取得エラー: スクリプト読み込み失敗";
+        // GAS取得失敗時もキャッシュにフォールバック
+        loadFromCache();
       };
       document.body.appendChild(script);
     }
 
-    // GASから呼び出されるコールバック関数
+    // GASコールバック
     function onRecipesLoaded(data) {
+      // localStorageに保存
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        localStorage.setItem(CACHE_KEY + '_date', new Date().toLocaleString('ja-JP'));
+      } catch(e) {
+        console.warn('キャッシュ保存失敗:', e);
+      }
+      initRecipes(data, 'オンライン（最新データ）');
+    }
+
+    // キャッシュから読み込む
+    function loadFromCache() {
+      const cached = localStorage.getItem(CACHE_KEY);
+      const date = localStorage.getItem(CACHE_KEY + '_date');
+      if (cached) {
+        initRecipes(JSON.parse(cached), `オフライン（${date} 時点のキャッシュ）`);
+      } else {
+        document.getElementById('recipe-list').innerHTML =
+          '<li>オフラインのため表示できません。一度オンラインで開いてください。</li>';
+      }
+    }
+
+    function initRecipes(data, statusText) {
       allRecipes = data;
-      showRecipes(allRecipes);
+      document.getElementById('status').textContent = statusText;
 
       // カテゴリの選択肢を動的生成
       const categories = [...new Set(data.map(r => r['カテゴリ']).filter(Boolean))];
       const select = document.getElementById('category-filter');
+      // 既存のオプション（すべて以外）をリセット
+      select.innerHTML = '<option value="すべて">すべて表示</option>';
       categories.forEach(cat => {
         const opt = document.createElement('option');
         opt.value = cat;
@@ -51,9 +94,7 @@
         select.appendChild(opt);
       });
 
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
-      }
+      showRecipes(allRecipes);
     }
 
     function showRecipes(data) {
@@ -82,8 +123,6 @@
       });
       showRecipes(filtered);
     }
-
-    window.onload = loadRecipes;
   </script>
 </body>
 </html>
