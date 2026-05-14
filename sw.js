@@ -1,9 +1,8 @@
-const CACHE_NAME = 'recipe-v2'; // バージョンを上げる
+const CACHE_NAME = 'recipe-v3';
 const ASSETS = [
-  './',
-  './index.html'
+  '/my-recipe-app/',
+  '/my-recipe-app/index.html'
 ];
-
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
