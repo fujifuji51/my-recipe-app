@@ -102,21 +102,48 @@
       showRecipes(allRecipes);
     }
 
-    function showRecipes(data) {
-      const list = document.getElementById('recipe-list');
-      if (data.length === 0) {
-        list.innerHTML = '<li>該当するレシピがありません</li>';
-        return;
-      }
-      list.innerHTML = data.map(r => `
-        <li>
-          <small>${r['カテゴリ'] || ''}</small><br>
-          <strong>${r['レシピ名'] || ''}</strong><br>
-          <p>${r['メモ'] || ''}</p>
-          <a href="${r['URL'] || '#'}" target="_blank">レシピを見る</a>
-        </li>
-      `).join('');
-    }
+   function showRecipes(data) {
+  const list = document.getElementById('recipe-list');
+  if (data.length === 0) {
+    list.innerHTML = '<li>該当するレシピがありません</li>';
+    return;
+  }
+  list.innerHTML = data.map((r, i) => `
+    <li>
+      <small>${r['カテゴリ'] || ''}</small><br>
+      <strong>${r['レシピ名'] || ''}</strong><br>
+      <div class="memo-toggle" onclick="toggleMemo(${i})">
+        📝 メモを見る ▼
+      </div>
+      <div class="memo-body" id="memo-${i}" style="display:none;">
+        ${(r['メモ'] || 'メモなし').replace(/\n/g, '<br>')}
+      </div>
+      <a href="${r['URL'] || '#'}" target="_blank"
+        onclick="return checkOnline(event)">レシピを見る →</a>
+    </li>
+  `).join('');
+}
+
+function toggleMemo(i) {
+  const body = document.getElementById(`memo-${i}`);
+  const toggle = body.previousElementSibling;
+  if (body.style.display === 'none') {
+    body.style.display = 'block';
+    toggle.textContent = '📝 メモを閉じる ▲';
+  } else {
+    body.style.display = 'none';
+    toggle.textContent = '📝 メモを見る ▼';
+  }
+}
+
+function checkOnline(e) {
+  if (!navigator.onLine) {
+    e.preventDefault();
+    alert('オフラインのため外部レシピページは開けません。\nメモ欄をご確認ください。');
+    return false;
+  }
+  return true;
+}
 
     function filterRecipes() {
       const cat = document.getElementById('category-filter').value;
