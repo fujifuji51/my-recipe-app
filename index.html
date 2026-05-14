@@ -33,6 +33,11 @@
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js');
       }
+      if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/my-recipe-app/sw.js')
+      .then(() => console.log('SW登録成功'))
+      .catch(e => console.error('SW登録失敗:', e));
+  }
 
       if (navigator.onLine) {
         // オンライン: GASから最新データ取得
