@@ -1,46 +1,28 @@
-const CACHE_NAME = 'recipe-app-v2'; // バージョンを上げて更新を促す
-const DATA_CACHE_NAME = 'recipe-data-v1';
-
+const CACHE_NAME = 'recipe-v2'; // バージョンを上げる
 const ASSETS = [
   './',
-  './index.html',
-  './manifest.json'
+  './index.html'
 ];
 
-// インストール時に基本ファイルを保存
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
-  self.skipWaiting();
+  self.skipWaiting(); // 即時有効化
 });
 
-// 通信が発生した時の処理
+self.addEventListener('activate', (e) => {
+  // 古いキャッシュを削除
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
 self.addEventListener('fetch', (e) => {
-  // GASのデータ取得（API）へのリクエストかどうかを判定
-  if (e.request.url.includes('script.google.com')) {
-    e.respondWith(
-      caches.open(DATA_CACHE_NAME).then((cache) => {
-        return fetch(e.request)
-          .then((response) => {
-            // ネットに繋がれば、最新データを保存して返す
-            if (response.status === 200) {
-              cache.put(e.request.url, response.clone());
-            }
-            return response;
-          })
-          .catch(() => {
-            // ネットがなければ、保存していたデータを返す
-            return cache.match(e.request.url);
-          });
-      })
-    );
-  } else {
-    // それ以外のファイル（HTMLなど）は、保存分があればそれを、なければネットへ
-    e.respondWith(
-      caches.match(e.request).then((response) => {
-        return response || fetch(e.request);
-      })
-    );
-  }
+  e.respondWith(
+    caches.match(e.request).then(response => response || fetch(e.request))
+  );
 });
