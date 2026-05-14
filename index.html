@@ -31,19 +31,23 @@
 
     // 起動時にデータを取得
     window.onload = async () => {
-      try {
-        const response = await fetch(GAS_URL);
-        allRecipes = await response.json();
-        showRecipes(allRecipes);
-        
-        // Service Workerの登録
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.register('sw.js');
-        }
-      } catch (e) {
-        document.getElementById('recipe-list').innerHTML = "データ取得エラー";
-      }
-    };
+  try {
+    // fetchの第2引数に {redirect: 'follow'} を入れるのがコツです
+    const response = await fetch(GAS_URL, { redirect: 'follow' });
+    
+    if (!response.ok) throw new Error('Network response was not ok');
+    
+    allRecipes = await response.json();
+    showRecipes(allRecipes);
+    
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  } catch (e) {
+    console.error(e);
+    document.getElementById('recipe-list').innerHTML = "データ取得エラー: " + e.message;
+  }
+};
 
     function showRecipes(data) {
       const list = document.getElementById('recipe-list');
